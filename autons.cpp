@@ -66,6 +66,7 @@ void offensive_side_1(){
   chassis.set_swing_constants(8.0, 0.2, 1.0, 0.03, 0.0);
   chassis.set_swing_exit_conditions(1.0, 500, 1000);
 
+  // Intake middle tri-ball
   chassis.right_swing_to_angle(10);
   chassis.drive_distance(60);
   Lift.spin(forward);
@@ -74,6 +75,8 @@ void offensive_side_1(){
   wait(500,msec);
   Lift.stop();
   Intake.stop();
+
+  // Score middle and front tri-balls
   chassis.set_turn_constants(5.0, 0.08, 1.0, 0.05, 0.0);
   chassis.set_turn_exit_conditions(0.5, 500, 3000);
   chassis.turn_to_angle(135);
