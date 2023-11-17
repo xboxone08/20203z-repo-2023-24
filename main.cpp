@@ -262,10 +262,13 @@ void usercontrol(void) {
       }
     }
 
+    // State machine for moving the tri-ball
+    // into and within the bot
     switch (intakeState)
     {
     case INTAKE_STATE_PRIMED:
       // Intake and lift motors off
+      // Starting state
       Intake.stop();
       Lift.stop();
       if (Potentiometer.value(percent) >= potentiometerBase + 25)
@@ -279,8 +282,11 @@ void usercontrol(void) {
       break;
     case INTAKE_STATE_ARM_LOWERING:
       // Intake and lift motors forward
+      // Lower intake mechanism
       Intake.spin(forward);
       Lift.spin(forward);
+      // If lowering/intake button released before passing halfway point,
+      // bring arm back up, otherwise continue downward motion.
       if (Potentiometer.value(percent) >= potentiometerBase + 25)
       {
         intakeState = INTAKE_STATE_INTAKE;
@@ -292,6 +298,7 @@ void usercontrol(void) {
       break;
     case INTAKE_STATE_INTAKE:
       // Intake motor forward; lift motor off
+      // Actually do the intaking
       Intake.spin(forward);
       Lift.stop();
       if (!Controller1.ButtonR1.pressing())
@@ -301,6 +308,7 @@ void usercontrol(void) {
       break;
     case INTAKE_STATE_HOLD:
       // Intake and lift motors off
+      // Tri-ball in intake mechanism
       Intake.stop();
       Lift.stop();
       if (LiftSwitch.pressing())
@@ -332,6 +340,7 @@ void usercontrol(void) {
       break;
     case INTAKE_STATE_INDEXING:
       // Intake motor forward, lift motor off
+      // Move tri-ball to shooting mechanism
       Intake.stop();
       Lift.stop();
       if (LiftSwitch.pressing())
@@ -342,6 +351,7 @@ void usercontrol(void) {
       break;
     case INTAKE_STATE_LOADED: 
       // Intake and lift motors off
+      // Ball in shooting mechanism
       Intake.stop();
       Lift.stop();
       if  (Controller1.ButtonL1.pressing())
@@ -351,6 +361,7 @@ void usercontrol(void) {
       break;
     case INTAKE_STATE_ARMING:
       // Intake and lift motors forward
+      // Prepare to fire
       if (!(Potentiometer.value(percent) >= potentiometerBase + 25)) {
         Intake.spin(forward);
         Lift.spin(forward);
@@ -360,9 +371,10 @@ void usercontrol(void) {
       break;
     case INTAKE_STATE_READY:
       // Intake and lift motors off
+      // Ready to fire
       Intake.stop();
       Lift.stop();
-      Controller1.rumble("Ready to fire");
+      Controller1.rumble("-");
       if  (Controller1.ButtonL1.pressing())
       {
         intakeState = INTAKE_STATE_FIRE;
@@ -370,6 +382,7 @@ void usercontrol(void) {
       break;
     case INTAKE_STATE_FIRE:
       // Intake and lift motors off
+      // Actually firing
       Intake.stop();
       Lift.stop();
       // Do catapult sequence
@@ -380,40 +393,42 @@ void usercontrol(void) {
       break;
     }
 
-    switch (Cata_State)
-    {
-    case CATA_STATE_REST:
-      if (Cata_Button_Pressed)
-      {
-        
-        CATAPULT.spin(forward);
-        Cata_State = CATA_STATE_TRIGGERED;
-      } 
-      break;
-    case CATA_STATE_TRIGGERED:
-      if (Cata_Button_Pressed)
-      {
-        
-        CATAPULT.spin(forward);
-      } 
-      if (!SWITCH)
-      {
-        Cata_State = CATA_STATE_RECOVER;
-      }
-      break; 
-    case CATA_STATE_RECOVER:
-      if (Cata_Button_Pressed)
-      {
-        
-        CATAPULT.spin(forward);
-      } 
-      if (SWITCH)
-      {
-        CATAPULT.stop();
-        Cata_Button_Pressed = false;
-        Cata_State = CATA_STATE_REST;
-      }
-      break; 
+    // State machine for catapult
+    switch (Cata_State) {
+      case CATA_STATE_REST:
+        if (Cata_Button_Pressed)
+        {
+          CATAPULT.spin(forward);
+          Cata_State = CATA_STATE_TRIGGERED;
+        } 
+        break;
+      // Fire button was pressed
+      // (in prev. state machine)
+      case CATA_STATE_TRIGGERED:
+        if (Cata_Button_Pressed)
+        {
+          CATAPULT.spin(forward);
+        } 
+        if (!SWITCH)
+        {
+          Cata_State = CATA_STATE_RECOVER;
+        }
+        break;
+      // Get ready to fire again
+      // (bring catapult back down
+      // after firing)
+      case CATA_STATE_RECOVER:
+        if (Cata_Button_Pressed)
+        {
+          CATAPULT.spin(forward);
+        } 
+        if (SWITCH)
+        {
+          CATAPULT.stop();
+          Cata_Button_Pressed = false;
+          Cata_State = CATA_STATE_REST;
+        }
+        break; 
     }
   }
 }
