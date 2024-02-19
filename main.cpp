@@ -3,17 +3,20 @@
 // ---- START VEXCODE CONFIGURED DEVICES ----
 // Robot Configuration:
 // [Name]               [Type]        [Port(s)]
-// L1                   motor         19              
+// L1                   motor         12              
 // R1                   motor         10              
-// R2                   motor         8               
-// Poop                 inertial      9               
-// L2                   motor         20              
+// R2                   motor         9               
+// Poop                 inertial      13              
+// L2                   motor         19              
 // Controller1          controller                    
-// R3                   motor         3               
-// L3                   motor         15              
-// Intake               motor         6               
-// Shooter              motor         14              
-// Climb                motor         7               
+// R3                   motor         15              
+// L3                   motor         20              
+// Intake               motor         8               
+// Wings                digital_out   A               
+// Balance              digital_out   B               
+// Climb                digital_out   F               
+// Shooter              motor         17              
+// ShooterSensor        rotation      16              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 using namespace vex;
@@ -71,7 +74,7 @@ motor_group(L1, L2, L3),
 motor_group(R1, R2, R3),
 
 //Specify the PORT NUMBER of your inertial sensor, in PORT format (i.e. "PORT1", not simply "1"):
-PORT9,
+PORT13,
 
 //Input your wheel diameter. (4" omnis are actually closer to 4.125"):
 2.75,
@@ -129,18 +132,25 @@ PORT3,     -PORT4,
 int current_auton_selection = 0;
 bool auto_started = false;
 int shoot = 0;
+bool shooterRecovering = true;
 bool released_ = true;
 
 void pre_auton(void) {
   chassis.set_heading(0);
   Intake.setVelocity(100, percent);
-  Shooter.setVelocity(90, percent);
   
-  // Initializing Robot Configuration. DO NOT REMOVE! 
+  Shooter.setVelocity(100, percent);
+  Shooter.setStopping(hold);
+  //ShooterSensor.setPosition(0, degrees);
+  Wings.set(false);
+  Climb.set(false);
+  //Lock.set(false);
+  
+  // Initializing Robot Configuration. DO NOT REMOVE!
   vexcodeInit();
   default_constants();
 
-  while(auto_started == false){            //Changing the names below will only change their names on the
+  while(auto_started == false) {            //Changing the names below will only change their names on the
     Brain.Screen.clearScreen();            //brain screen for auton selection.
     switch(current_auton_selection){       //Tap the brain screen to cycle through autons.
       case 0:
@@ -149,11 +159,17 @@ void pre_auton(void) {
       case 1:
         Brain.Screen.printAt(50, 50, "Defensive Side 2");
         break;
+      case 2:
+        Brain.Screen.printAt(50, 50, "Offensive Side 1");
+        break;
+      case 3:
+        Brain.Screen.printAt(50, 50, "skills");
+        break;
     }
     if(Brain.Screen.pressing()) {
       while(Brain.Screen.pressing()) {}
       current_auton_selection ++;
-    } else if (current_auton_selection == 2){
+    } else if (current_auton_selection == 4) {
       current_auton_selection = 0;
     }
     task::sleep(10);
@@ -162,12 +178,18 @@ void pre_auton(void) {
 
 void autonomous(void) {
   auto_started = true;
-  switch(current_auton_selection){
+  switch(current_auton_selection) {
     case 0:
       defensive_side_1(); //This is the default auton, if you don't select from the brain.
       break;        //Change these to be your own auton functions in order to use the auton selector.
     case 1:         //Tap the screen to cycle through autons.
+      defensive_side_2();
+      break;
+    case 2:         //Tap the screen to cycle through autons.
       offensive_side_1();
+      break;
+    case 3:         //Tap the screen to cycle through autons.
+      skills();
       break;
  }
 }
@@ -185,10 +207,8 @@ void autonomous(void) {
 
 
 void usercontrol(void) {
-
-  
-
-  
+  Climb.set(false);
+  Balance.set(false);
 
   while (1) {
     // This is the main execution loop for the user control program.
@@ -219,66 +239,69 @@ void usercontrol(void) {
     }
     else
     {
-      Intake.stop();
+      Intake.stop();                                                                           
     }
 
     if (Controller1.ButtonL1.pressing())
     {
-      // WingA.set(true);
+      Wings.set(true);
       // WingD.set(true);
     }
     else
     {
-      // WingA.set(false);
+      Wings.set(false);
       // WingD.set(false);
     }
-    if (Controller1.ButtonUp.pressing()) {
-      Climb.spin(forward);
-    }
-    else if (Controller1.ButtonDown.pressing()) {
-      Climb.spin(reverse);
-    }
-    else {
-      Climb.stop();
-    }
 
-    // if (Controller1.ButtonX.pressing()) {
-    //   // Only run once per press
-    //   if (released_) {
-    //     // Invert shoot
-    //     if (!shoot) {
-    //       shoot = 1;
-    //     } else {
-    //       shoot = 0;
-    //     }
-    //     released_ = false;
-    //   }
-    // } else {
-    //   released_ = true;
-    // }
-
-    if (Controller1.ButtonB.pressing()) {
-      if (released_) {
-        if (!shoot) {
-          shoot = -1;
-        } else {
-          shoot = 0;
-        }
-        released_ = false;
+    if (Controller1.ButtonUp.pressing()) 
+    {
+      Climb.set(false);
+    } 
+    else if (Controller1.ButtonDown.pressing()) 
+    {
+      Climb.set(true);
+    } 
+    if (Controller1.ButtonX.pressing()) 
+    {
+      Balance.set(true);
+    } 
+    else if (Controller1.ButtonB.pressing()) 
+    {
+      Balance.set(false);
+    } 
+         
+    if (shooterRecovering) {
+      if (ShooterSensor.angle() < 60.0) {
+        Shooter.spin(reverse);
+      } else {
+        Shooter.stop();
+        shooterRecovering = false;
       }
     } else {
-      released_ = true;
+      if (shoot == -1) {
+        Shooter.spin(reverse);
+      } else {
+        shooterRecovering = true;
+      }
     }
 
-    if (shoot == 1) {
-      Shooter.spin(forward);
-    } else if (shoot == -1) {
-      Shooter.spin(reverse);
-    } else {
-      Shooter.stop();
+     if (Controller1.ButtonL2.pressing()) {
+        if (released_) {
+          if (!shoot) {
+            shoot = -1;
+          } else {
+            shoot = 0;
+          }
+          released_ = false;
+        }
+      } else {
+        released_ = true;
+      }
+
+
+
     }
   }
-}
 
 
 //
